@@ -67,6 +67,46 @@ It provides a clean structural account for phenomena such as persistent calorie 
 Status
 This repository represents a completed negative‑control dataset within the OBA framework.
 Further work would require moving beyond purely passive, energy‑minimizing architectures (e.g., multi‑goal or culturally informed models).
+Flavor Gourmet — Attempt 2
+
+Flavor Gourmet Attempt 2 is the second modeling experiment within the OBA framework focusing on the gustatory modality. The core goal of this version is to test whether a taste system can spontaneously generate stable intermediate state structures (gustatory intermediate states) purely from low‑level physical–chemical inputs—completely excluding subjectivity, preference, or semantic labels.
+
+Attempt 2 explicitly addresses the issue in the first attempt, where subjectivity and evaluative mechanisms were introduced too early, by strictly adhering to these principles:
+
+    Inputs contain only continuous, low‑level physical–chemical features (ion concentration, osmotic pressure, molecular‑scale properties, etc.).
+
+    No use of any taste categories (such as sweet, bitter, umami) or human semantics.
+
+    No reward, preference, or decision mechanisms are included.
+
+    Taste is treated as a passive physical field rather than an active selection process.
+
+Structurally, Attempt 2 adopts a multi‑stage pipeline isomorphic to other perceptual modules in OBA (e.g., Odor K9, Light Sommelier):
+
+Combinatorial Gustatory Receptor Field
+Physical inputs are projected through random, overlapping receptor weights to form a sparse combinatorial code.
+
+Low‑Dimensional Competitive Integration Dynamics
+Receptor activations enter a low‑dimensional integration layer with lateral inhibition (mitral‑like dynamics, with olfactory naming removed), producing stable yet non‑trivial intermediate states over time.
+
+Gustatory Field Descriptor
+The integrated states are expressed as a continuous gustatory field (intensity, dispersion, tension, etc.), used only for structural analysis and not for evaluation.
+
+Stability Bias & Energy Modulation
+The field structure can be mapped to stability‑bias parameters; external energy states modulate trajectory morphology without altering the final attractor structure.
+
+Trajectory‑Based Maturity Metric
+A preference‑independent maturity metric quantifies whether the perceptual process has fully converged.
+
+Experimental results show that under the current parameters and architecture, Flavor Gourmet Attempt 2 forms a continuous, stable, single‑attractor gustatory manifold:
+
+    The “content structure” of taste is determined by physical inputs and competitive dynamics.
+
+    Energy states affect the formation trajectory but not the final structure.
+
+    Maturity reflects the completeness of the process, not any value judgment.
+
+Therefore, Attempt 2 serves as a clean, encapsulated, and cross‑modally alignable gustatory submodule within OBA. Its outputs (field / stability bias / maturity) can be used by higher‑level systems, while it itself performs no subjective or decision‑making functions.
 
 License / Use
 This code is provided for research, analysis, and conceptual exploration.
