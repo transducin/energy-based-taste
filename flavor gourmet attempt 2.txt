@@ -1,0 +1,537 @@
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 1
+# Physical Taste Features → Gustatory Receptor Field
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# (1) Physical Taste Feature Encoding
+# ---------------------------------------------------------------
+# 所有维度 ∈ [0, 1]，表示归一化后的物理强度
+# 不允许任何 taste 语义（sweet / umami 等）
+
+def make_gustatory_feature(
+    na_conc=0.5,          # Na+ relative concentration
+    k_conc=0.4,           # K+ relative concentration
+    h_conc=0.3,           # H+ (acidity proxy)
+    cl_conc=0.5,          # Cl- relative concentration
+    osmolarity=0.6,       # osmotic pressure
+    molecular_size=0.5,   # average molecular volume
+    polarity=0.6,         # molecular polarity
+    solubility_rate=0.7   # dissolution speed
+):
+    feat = np.array([
+        na_conc,
+        k_conc,
+        h_conc,
+        cl_conc,
+        osmolarity,
+        molecular_size,
+        polarity,
+        solubility_rate
+    ], dtype=float)
+    return np.clip(feat, 0.0, 1.0)
+
+# ---------------------------------------------------------------
+# (2) Gustatory Receptor Field (Combinatorial Coding)
+# ---------------------------------------------------------------
+# 模拟“多分子-多受体”混合响应
+# 每个受体对物理特征的权重是随机但固定的
+
+class GustatoryReceptorField:
+    def __init__(
+        self,
+        n_receptors=28,
+        n_features=8,
+        threshold=0.35,
+        seed=42
+    ):
+        rng = np.random.default_rng(seed)
+        # 随机组合权重（可正可负）
+        self.W = rng.uniform(
+            -1.0, 1.0,
+            size=(n_receptors, n_features)
+        )
+        self.threshold = threshold
+
+    def activate(self, phys_feat):
+        """
+        phys_feat : shape [n_features]
+        return:
+            activation : shape [n_receptors]
+        """
+        raw = self.W @ phys_feat
+        act = np.maximum(0.0, raw - self.threshold)
+        return act
+
+# ---------------------------------------------------------------
+# (3) Quick Sanity Test
+# ---------------------------------------------------------------
+if __name__ == "__main__":
+
+    # 示例：一个“高盐 + 中等极性”的物理刺激
+    g_feat = make_gustatory_feature(
+        na_conc=0.75,
+        k_conc=0.35,
+        h_conc=0.25,
+        cl_conc=0.7,
+        osmolarity=0.65,
+        molecular_size=0.45,
+        polarity=0.6,
+        solubility_rate=0.8
+    )
+
+    receptors = GustatoryReceptorField(
+        n_receptors=28,
+        threshold=0.35
+    )
+
+    act = receptors.activate(g_feat)
+
+    print("Physical gustatory feature vector:")
+    print(np.round(g_feat, 3))
+
+    print("\nReceptor activation pattern:")
+    print(np.round(act, 3))
+
+    print("\nActive receptor count:",
+          int(np.sum(act > 0)))
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 2
+# Gustatory Integration Dynamics (Mitral-like, De-olfactory)
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# (1) Gustatory Integration Layer
+# ---------------------------------------------------------------
+class GustatoryIntegrationLayer:
+    def __init__(
+        self,
+        n_units=4,
+        alpha=0.4,
+        lateral_inhib=0.3
+    ):
+        """
+        n_units       : integration units (low dimensional)
+        alpha         : temporal smoothing (0~1)
+        lateral_inhib : lateral inhibition strength
+        """
+        self.n_units = n_units
+        self.alpha = alpha
+        self.lateral_inhib = lateral_inhib
+
+        self.W_in = None
+        self.L = None
+        self.state = None
+
+    def initialize(self, n_receptors, seed=1):
+        rng = np.random.default_rng(seed)
+
+        # receptor → integration projection
+        self.W_in = rng.uniform(
+            0.0, 1.0,
+            size=(self.n_units, n_receptors)
+        )
+
+        # lateral inhibition (no self-inhibition)
+        self.L = self.lateral_inhib * (
+            np.ones((self.n_units, self.n_units))
+            - np.eye(self.n_units)
+        )
+
+        # initial state
+        self.state = np.zeros(self.n_units)
+
+    def step(self, receptor_act):
+        drive = self.W_in @ receptor_act
+        lateral = self.L @ self.state
+
+        new_state = (
+            (1.0 - self.alpha) * self.state
+            + self.alpha * np.maximum(0.0, drive - lateral)
+        )
+
+        self.state = new_state
+        return new_state.copy()
+
+# ---------------------------------------------------------------
+# (2) Temporal Test (Constant Input)
+# ---------------------------------------------------------------
+if __name__ == "__main__":
+
+    # 使用 Part 1 的 receptor 输出
+    receptor_act = act  # 直接沿用你刚才跑出来的 act
+
+    layer = GustatoryIntegrationLayer(
+        n_units=4,
+        alpha=0.4,
+        lateral_inhib=0.3
+    )
+
+    layer.initialize(n_receptors=len(receptor_act))
+
+    print("Running gustatory integration dynamics:\n")
+
+    for t in range(10):
+        state = layer.step(receptor_act)
+        print(f"t={t:02d} | state =", np.round(state, 3))
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 3
+# Gustatory Field Descriptor (No Decision)
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# Gustatory Field Extraction
+# ---------------------------------------------------------------
+class GustatoryFieldDescriptor:
+    def __init__(
+        self,
+        w_intensity=0.6,
+        w_dispersion=0.4
+    ):
+        self.w_intensity = w_intensity
+        self.w_dispersion = w_dispersion
+
+    def compute(self, integration_state):
+        """
+        integration_state : shape [n_units]
+        return a dict of field-level descriptors
+        """
+
+        # 1) Overall activation intensity
+        intensity = np.mean(np.abs(integration_state))
+
+        # 2) Structural dispersion (competition degree)
+        dispersion = np.var(integration_state)
+
+        # 3) Flavor field axes (purely descriptive)
+        ionic_tension = np.max(integration_state) - np.min(integration_state)
+        balance_index = np.std(integration_state)
+
+        return {
+            "intensity": float(intensity),
+            "dispersion": float(dispersion),
+            "ionic_tension": float(ionic_tension),
+            "balance_index": float(balance_index),
+        }
+
+# ---------------------------------------------------------------
+# Quick Test using final state from Part 2
+# ---------------------------------------------------------------
+if __name__ == "__main__":
+
+    final_state = state  # 使用你 Part 2 最后一步的 state
+
+    field = GustatoryFieldDescriptor()
+    desc = field.compute(final_state)
+
+    print("Final integration state:")
+    print(np.round(final_state, 3))
+
+    print("\nGustatory field descriptors:")
+    for k, v in desc.items():
+        print(f"{k:>15s} : {v:.4f}")
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 4
+# Gustatory Field → Stability Bias (No Decision)
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# Gustatory Stability Bias Module
+# ---------------------------------------------------------------
+class GustatoryStabilityBias:
+    def __init__(
+        self,
+        w_intensity=0.5,
+        w_dispersion=0.3,
+        w_tension=0.2
+    ):
+        """
+        weights control how different field aspects
+        bias system stability
+        """
+        self.w_intensity = w_intensity
+        self.w_dispersion = w_dispersion
+        self.w_tension = w_tension
+
+    def compute(self, field_desc):
+        """
+        field_desc : dict from GustatoryFieldDescriptor
+        return:
+            stability bias parameters (no decision)
+        """
+
+        intensity = field_desc["intensity"]
+        dispersion = field_desc["dispersion"]
+        tension = field_desc["ionic_tension"]
+
+        # 1) Soft stability shift (higher → less stable)
+        delta_theta = (
+            self.w_intensity * intensity +
+            self.w_dispersion * dispersion
+        )
+
+        # 2) Instability gain (competition & tension amplify Δ² effects)
+        instability_gain = (
+            1.0 +
+            self.w_tension * np.tanh(tension)
+        )
+
+        return {
+            "delta_theta_stability": float(delta_theta),
+            "instability_gain": float(instability_gain)
+        }
+
+# ---------------------------------------------------------------
+# Quick Test using Part 3 field descriptor
+# ---------------------------------------------------------------
+if __name__ == "__main__":
+
+    # 使用你 Part 3 得到的 desc
+    field_desc = desc
+
+    bias_module = GustatoryStabilityBias()
+    stability_bias = bias_module.compute(field_desc)
+
+    print("Gustatory field descriptor:")
+    for k, v in field_desc.items():
+        print(f"{k:>15s} : {v:.4f}")
+
+    print("\nStability bias output (no decision):")
+    for k, v in stability_bias.items():
+        print(f"{k:>22s} : {v:.4f}")
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 5A
+# Local Physical Input Sweep & Attractor Sensitivity
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# Helper: run full FG pipeline up to integration state
+# ---------------------------------------------------------------
+def run_fg_state(gustatory_feature,
+                 receptor_field,
+                 integration_layer,
+                 n_steps=10):
+    """
+    returns final integration state for a given input feature
+    """
+    act = receptor_field.activate(gustatory_feature)
+
+    integration_layer.state = np.zeros(integration_layer.n_units)
+
+    for _ in range(n_steps):
+        state = integration_layer.step(act)
+
+    return state.copy()
+
+# ---------------------------------------------------------------
+# Base Feature (reference point)
+# ---------------------------------------------------------------
+base_feat = make_gustatory_feature(
+    na_conc=0.75,
+    k_conc=0.35,
+    h_conc=0.25,
+    cl_conc=0.70,
+    osmolarity=0.65,
+    molecular_size=0.45,
+    polarity=0.60,
+    solubility_rate=0.80
+)
+
+# ---------------------------------------------------------------
+# Sweep one physical dimension: Na+ concentration
+# ---------------------------------------------------------------
+na_sweep = np.linspace(0.55, 0.95, 7)
+
+print("Na+ sweep → final integration states\n")
+
+states = []
+
+for na in na_sweep:
+    feat = base_feat.copy()
+    feat[0] = na  # index 0 = Na+
+
+    state = run_fg_state(
+        feat,
+        receptors,
+        layer,
+        n_steps=10
+    )
+
+    states.append(state)
+
+    print(f"Na+ = {na:.2f} | state = {np.round(state, 3)}")
+
+states = np.array(states)
+
+# ---------------------------------------------------------------
+# Simple structural measures
+# ---------------------------------------------------------------
+print("\nStructural measures across sweep:")
+
+mean_intensity = np.mean(states, axis=1)
+variance = np.var(states, axis=1)
+
+for i, na in enumerate(na_sweep):
+    print(
+        f"Na+ {na:.2f} | "
+        f"mean = {mean_intensity.3f} | "
+        f"var = {variance.3f}"
+    )
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 5B
+# Gustatory Field × Energy → Stability Dynamics
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# Energy-modulated integration run
+# ---------------------------------------------------------------
+def run_fg_with_energy(
+    gustatory_feature,
+    receptor_field,
+    integration_layer,
+    E0=1.0,
+    decay=0.05,
+    alpha_base=0.4,
+    n_steps=12
+):
+    """
+    Run gustatory dynamics under explicit energy constraint.
+    Energy modulates integration speed (alpha).
+    """
+
+    act = receptor_field.activate(gustatory_feature)
+    integration_layer.state = np.zeros(integration_layer.n_units)
+
+    E = E0
+    states = []
+    energies = []
+
+    for t in range(n_steps):
+        # energy-modulated integration rate
+        alpha_eff = alpha_base * (0.3 + 0.7 * E)
+        integration_layer.alpha = alpha_eff
+
+        state = integration_layer.step(act)
+        states.append(state.copy())
+        energies.append(E)
+
+        # simple energy decay
+        E = max(0.0, E - decay)
+
+    return np.array(states), np.array(energies)
+
+# ---------------------------------------------------------------
+# Test under different energy budgets
+# ---------------------------------------------------------------
+energy_levels = [1.0, 0.6, 0.3]
+
+print("Energy-modulated gustatory dynamics\n")
+
+for E0 in energy_levels:
+    states, energies = run_fg_with_energy(
+        base_feat,
+        receptors,
+        layer,
+        E0=E0,
+        decay=0.05,
+        n_steps=12
+    )
+
+    final_state = states[-1]
+    trajectory_length = np.sum(np.linalg.norm(np.diff(states, axis=0), axis=1))
+
+    print(f"\nInitial Energy E0 = {E0:.2f}")
+    print("Final state:", np.round(final_state, 3))
+    print("Total trajectory length:", round(trajectory_length, 4))
+# ===============================================================
+# Flavor Gourmet Attempt 2 — Part 6
+# Gustatory Maturity Metric (Trajectory-based, No Preference)
+# ===============================================================
+
+import numpy as np
+
+# ---------------------------------------------------------------
+# Gustatory Maturity Estimator
+# ---------------------------------------------------------------
+class GustatoryMaturityMetric:
+    def __init__(
+        self,
+        window_ratio=0.3,
+        eps=1e-6
+    ):
+        """
+        window_ratio : fraction of late trajectory used to assess convergence
+        eps          : numerical stability
+        """
+        self.window_ratio = window_ratio
+        self.eps = eps
+
+    def compute(self, state_trajectory):
+        """
+        state_trajectory : shape [T, n_units]
+        return maturity score in [0, 1]
+        """
+        T = len(state_trajectory)
+        if T < 4:
+            return 0.0
+
+        # -------------------------------
+        # 1. Late-stage window
+        # -------------------------------
+        w = max(2, int(self.window_ratio * T))
+        late_states = state_trajectory[-w:]
+
+        # -------------------------------
+        # 2. Instability (mean step change)
+        # -------------------------------
+        diffs = np.linalg.norm(np.diff(late_states, axis=0), axis=1)
+        mean_change = np.mean(diffs)
+
+        # -------------------------------
+        # 3. Normalize by trajectory scale
+        # -------------------------------
+        overall_scale = np.mean(
+            np.linalg.norm(state_trajectory, axis=1)
+        ) + self.eps
+
+        normalized_change = mean_change / overall_scale
+
+        # -------------------------------
+        # 4. Maturity score (higher = more formed)
+        # -------------------------------
+        maturity = np.exp(-5.0 * normalized_change)
+        return float(np.clip(maturity, 0.0, 1.0))
+
+# ---------------------------------------------------------------
+# Quick test across different energy conditions (from Part 5B)
+# ---------------------------------------------------------------
+if __name__ == "__main__":
+
+    maturity_estimator = GustatoryMaturityMetric()
+
+    print("Gustatory maturity scores:\n")
+
+    for E0 in energy_levels:
+        states, _ = run_fg_with_energy(
+            base_feat,
+            receptors,
+            layer,
+            E0=E0,
+            decay=0.05,
+            n_steps=12
+        )
+
+        score = maturity_estimator.compute(states)
+        print(f"E0 = {E0:.2f} | maturity = {score:.4f}")
